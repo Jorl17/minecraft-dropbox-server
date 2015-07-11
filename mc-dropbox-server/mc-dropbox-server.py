@@ -1,5 +1,6 @@
 import os
 import urllib.request
+import urllib.parse
 import json
 
 __author__ = 'jorl17'
@@ -60,7 +61,7 @@ def check_central_server(server = CENTRAL_SERVER_ADDRESS):
 
 def check_dropbox_file(server_folder='minecraft-server', dropbox_home_path=dropbox_home()):
     path = os.path.join(dropbox_home_path, server_folder, 'mc_dropbox_server_status.txt')
-    print(path)
+
     try:
         with open(path) as f:
             lines = f.readlines()
@@ -79,3 +80,29 @@ def is_someone_running_server():
         return check_dropbox_file()
     else:
         return status
+
+
+def inform_central_server(ip, central_server_address=CENTRAL_SERVER_ADDRESS):
+    data = urllib.parse.urlencode({'ip': ip}).encode()
+    header = {"Content-Type": "application/x-www-form-urlencoded"}
+    req = urllib.request.Request(central_server_address, data, header)
+    f = urllib.request.urlopen(req)
+
+
+def get_public_ip():
+    f = urllib.request.urlopen('http://ipv4bot.whatismyipaddress.com')
+    return f.read().decode()
+
+
+def update_dropbox_state(ip, server_folder='minecraft-server', dropbox_home_path=dropbox_home()):
+    path = os.path.join(dropbox_home_path, server_folder, 'mc_dropbox_server_status.txt')
+
+    with open(path, 'w') as f:
+        f.write(ip)
+
+def mark_server_as_running():
+    our_ip = get_public_ip()
+    inform_central_server(our_ip)
+    update_dropbox_state(our_ip)
+
+mark_server_as_running()

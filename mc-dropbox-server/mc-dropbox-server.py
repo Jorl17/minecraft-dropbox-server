@@ -1,4 +1,5 @@
 import os
+import subprocess
 import urllib.request
 import urllib.parse
 import json
@@ -6,6 +7,7 @@ import json
 __author__ = 'jorl17'
 
 CENTRAL_SERVER_ADDRESS='http://localhost:9000'
+DEFAULT_JAVA_FLAGS='-Xmx3G -Xms2G -jar'
 
 #From http://stackoverflow.com/a/12118327
 def _get_appdata_path():
@@ -83,10 +85,14 @@ def is_someone_running_server():
 
 
 def inform_central_server(ip, central_server_address=CENTRAL_SERVER_ADDRESS):
-    data = urllib.parse.urlencode({'ip': ip}).encode()
-    header = {"Content-Type": "application/x-www-form-urlencoded"}
-    req = urllib.request.Request(central_server_address, data, header)
-    f = urllib.request.urlopen(req)
+    try:
+        data = urllib.parse.urlencode({'ip': ip}).encode()
+        header = {"Content-Type": "application/x-www-form-urlencoded"}
+        req = urllib.request.Request(central_server_address, data, header)
+        f = urllib.request.urlopen(req)
+    except Exception as e:
+        print('Could not inform central server: ' + str(e))
+        return None
 
 
 def get_public_ip():
@@ -105,4 +111,20 @@ def mark_server_as_running():
     inform_central_server(our_ip)
     update_dropbox_state(our_ip)
 
-mark_server_as_running()
+def start_local_server(server_folder='minecraft-server', dropbox_home_path=dropbox_home(), java_flags=DEFAULT_JAVA_FLAGS, server_jar='minecraft_server.1.8.3.jar'):
+    path = os.path.join(dropbox_home_path, server_folder)
+    os.chdir(path)
+    command = 'java {:s} -jar {:s} '.format(java_flags, server_jar)
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+    process.wait()
+
+def go():
+    status = is_someone_running_server()
+    if status:
+        print('Server is running at {:s}'.format(status))
+    else:
+        print('Server is not running. Starting...')
+        mark_server_as_running()
+        start_local_server()
+
+go()

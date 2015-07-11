@@ -78,15 +78,22 @@ def check_dropbox_file(server_folder='minecraft-server', dropbox_home_path=dropb
 
 def is_someone_running_server():
     status = check_central_server()
-    if status == None:
-        return check_dropbox_file()
+    status_dropbox = check_dropbox_file()
+    if status != None:
+        if status == status_dropbox:
+            return status
+        else:
+            print('Dropbox and server disagree. Notifying server of status update (Dropbox is probably correct)')
+            inform_central_server(status)
     else:
-        return status
-
+        return status_dropbox
 
 def inform_central_server(ip, central_server_address=CENTRAL_SERVER_ADDRESS):
     try:
-        data = urllib.parse.urlencode({'ip': ip}).encode()
+        if ip:
+            data = urllib.parse.urlencode({'message': 'started', 'ip': ip}).encode()
+        else:
+            data = urllib.parse.urlencode({'message': 'stopped'}).encode()
         header = {"Content-Type": "application/x-www-form-urlencoded"}
         req = urllib.request.Request(central_server_address, data, header)
         f = urllib.request.urlopen(req)
@@ -103,13 +110,23 @@ def get_public_ip():
 def update_dropbox_state(ip, server_folder='minecraft-server', dropbox_home_path=dropbox_home()):
     path = os.path.join(dropbox_home_path, server_folder, 'mc_dropbox_server_status.txt')
 
-    with open(path, 'w') as f:
-        f.write(ip)
+    if ip:
+        with open(path, 'w') as f:
+            f.write(ip)
+    else:
+        try:
+            os.remove(path)
+        except:
+            pass
 
 def mark_server_as_running():
     our_ip = get_public_ip()
     inform_central_server(our_ip)
     update_dropbox_state(our_ip)
+
+def mark_server_as_stopped():
+    inform_central_server(None)
+    update_dropbox_state(None)
 
 def start_local_server(server_folder='minecraft-server', dropbox_home_path=dropbox_home(), java_flags=DEFAULT_JAVA_FLAGS, server_jar='minecraft_server.1.8.3.jar'):
     path = os.path.join(dropbox_home_path, server_folder)
@@ -126,5 +143,15 @@ def go():
         print('Server is not running. Starting...')
         mark_server_as_running()
         start_local_server()
+        print('Server stopped. Updating server and Dropbox...')
+        mark_server_as_stopped()
+        print('Done!')
 
-go()
+try:
+    go()
+except:
+    print('Caught interrupt. Terminating and marking as stopped if we were the server.')
+    status = is_someone_running_server()
+    if status and status == get_public_ip():
+        print('We were the server! Marking as stopped')
+        mark_server_as_stopped()

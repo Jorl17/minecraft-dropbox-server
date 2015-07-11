@@ -1,6 +1,7 @@
 import cgi
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
+import json
 
 HOST_NAME = "0.0.0.0"
 HOST_PORT = 9000
@@ -13,13 +14,13 @@ class mc_dropbox_state_server(BaseHTTPRequestHandler):
         super().__init__(request, client_address, server)
 
     def save_state(self):
-        with open('mc_dropbox_server_status.txt', 'w') as f:
+        with open('mc_dropbox_server_status_central.txt', 'w') as f:
             f.write(self.state)
 
     def get_state(self):
         if not self.state:
             try:
-                with open('mc_dropbox_server_status.txt') as f:
+                with open('mc_dropbox_server_status_central.txt') as f:
                     lines = f.readlines()
                     if lines:
                         ip = lines[0].strip()
@@ -33,9 +34,11 @@ class mc_dropbox_state_server(BaseHTTPRequestHandler):
     def state_to_json(self):
         state = self.get_state()
         if not state:
-            return '{online: false}'
+            d =  {'online': False}
         else:
-            return '{online: true, ip: "' + state + '"}'
+            d = {'online': True, 'ip': state }
+
+        return json.dumps(d)
 
 
     def do_GET(self):

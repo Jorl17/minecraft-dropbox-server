@@ -1,5 +1,6 @@
 import cgi
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
 import time
 import json
 
@@ -14,8 +15,14 @@ class mc_dropbox_state_server(BaseHTTPRequestHandler):
         super().__init__(request, client_address, server)
 
     def save_state(self):
-        with open('mc_dropbox_server_status_central.txt', 'w') as f:
-            f.write(self.state)
+        if self.state:
+            with open('mc_dropbox_server_status_central.txt', 'w') as f:
+                f.write(self.state)
+        else:
+            try:
+                os.remove('mc_dropbox_server_status_central.txt')
+            except:
+                pass
 
     def get_state(self):
         if not self.state:
@@ -59,24 +66,39 @@ class mc_dropbox_state_server(BaseHTTPRequestHandler):
 
     def do_POST(self):
         variables = self.get_post_variables()
-        state = variables.get(b'ip')[0].decode('utf-8')
-        if not state:
-            self.send_response(500)
+        message = variables.get(b'message')[0].decode('utf-8')
+        if not message or message not in ('stopped', 'started'):
+            print(message)
+            self.send_response(503)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            self.wfile.write(bytes('No IP supplied!', "utf-8"))
+            self.wfile.write(bytes('No message supplied.', "utf-8"))
         else:
-            if self.state:
-                self.send_response(500)
-                self.send_header("Content-type", "text/plain")
-                self.end_headers()
-                self.wfile.write(bytes('Server already running at ' + self.state + '!', "utf-8"))
-            else:
-                self.state = state
+            if message == 'stopped':
+                self.state = None
                 self.save_state()
                 self.send_response(200)
                 self.send_header("Content-type", "text/plain")
                 self.end_headers()
+            else:
+                state = variables.get(b'ip')[0].decode('utf-8')
+                if not state:
+                    self.send_response(503)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(bytes('No IP supplied!', "utf-8"))
+                else:
+                    if self.state:
+                        self.send_response(503)
+                        self.send_header("Content-type", "text/plain")
+                        self.end_headers()
+                        self.wfile.write(bytes('Server already running at ' + self.state + '!', "utf-8"))
+                    else:
+                        self.state = state
+                        self.save_state()
+                        self.send_response(200)
+                        self.send_header("Content-type", "text/plain")
+                        self.end_headers()
 
 
 def main():

@@ -3,9 +3,9 @@ Ever tried running a **Minecraft server** together with your friends using Dropb
 
 **minecraft-dropbox-server** is a simple python 3 script with the purpose of easing the whole process of running a "distributed" minecraft server. Instead of running the minecraft server and taking all precautions to check that nobody else is doing it, simply make sure everyone uses the **minecraft-dropbox-server** utility! Say you have a dropbox folder named "Minecraft Server Friends", then all your friends and you need to do is:
 
-	mc-dbox-server -n minecraft-server
+	mc-dbox-server -n "Minecraft Server Friends"
 
-Install instructions can be found [here](#how-do-i-installuninstall-it).
+Install instructions can be found [here](#how-do-i-installuninstall-it). Some examples can be found [here](#example-usage). **It should run in Windows, Mac OS X and Linux**, but it hasn't been tested in Windows...care to *help*? :)
 
 With only these options, **minecraft-dropbox-server** will check if a server is already running and tell you its IP (it will auto-detect your dropbox folder). If there is no server, it will start its own and make sure everyone else knows its running. There are many tunable options, and you can even use a central server for some additional bookkeeping (in case you there is some problem with the database backend...it's really a niche option)
 
@@ -26,14 +26,23 @@ Table of Contents
   * [What happens if the server crashes? What if the server is stopped but mc-dbox-server thinks it's not?](#what-happens-if-the-server-crashes-what-if-the-server-is-stopped-but-mc-dbox-server-thinks-its-not)
   * [What are the secret key options for?](#what-are-the-secret-key-options-for)
   * [Are you able to automatically launch Minecraft or add the current IP to its list?](#are-you-able-to-automatically-launch-minecraft-or-add-the-current-ip-to-its-list)
+  * [What happens if I have multiple jars in the server folder?](#what-happens-if-i-have-multiple-jars-in-the-server-folder)
+  * [Example usage](#example-usage)
+    * [Starting/joining a server of a shared Dropbox folder](#startingjoining-a-server-of-a-shared-dropbox-folder)
+    * [Starting/joining a server of a shared Dropbox folder and reporting a different ip](#startingjoining-a-server-of-a-shared-dropbox-folder-and-reporting-a-different-ip)
+    * [Starting/joining a server by manually supplying the dropbox home folder (e.g. for MEGA or some other service)](#startingjoining-a-server-by-manually-supplying-the-dropbox-home-folder-eg-for-mega-or-some-other-service)
+    * [Starting/joining a server by manually supplying the server folder](#startingjoining-a-server-by-manually-supplying-the-server-folder)
+    * [Changing the server JVM arguments](#changing-the-server-jvm-arguments)
   * [Full option list](#full-option-list)
 
-Created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
+TOC created with [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
 
 # How does it work?
 **minecraft-dropbox-server** is very simple. It creates an additional file in your server, named `mc_dropbox_server_status.txt`. In this file, it **logs the IP of the current host** (it deletes the file if there is no host). All the rest is just wrapper code to start and stop the server at the right time and allow you to supply many flags, such as the JVM arguments you want, etc.
 
 There is also the possibility of using a centralized server just for the bookkeeping data. That way, even if you can't host your own full-blown server, you might be able to host just a tiny webserver that indicates where the game is currently hosted. The idea would be that this server would be more reliable than Dropbox (it handles only one request at a time, thus avoiding concurrency issues). However, *in its current version*, if the Dropbox and the server have a mismatch, the Dropbox version is preferred. So the server itself isn't really doing much at the moment, but that will probably change in the future, as the code matures. This is also why the current install script doesn't even install the server.
+
+You still need to manage your **port forwarding rules** by yourself. This just helps making sure two people don't run the server at the same time and blow up the game.
 
 # Why are there two applications? And what are they?
 
@@ -61,7 +70,7 @@ There is also the possibility of using a centralized server just for the bookkee
     ./uninstall.sh /usr/local
 
 # If mc-dbox-server executes my Minecraft Server, can I change the JVM arguments? What are the defaults?
-You can, it's easy! Just use the `-j`, `--jvm-options`flag. The defaults are `-Xmx3G -Xms2G` and you probably ought to change them.
+You can, it's easy! Just use the `-o`, `--jvm-options`flag. The defaults are `-Xmx3G -Xms2G` and you probably ought to change them.
 
 # Can I change the IP that mc-dbox-server reports?
 Sure. Use `-i`,`--ip`to set the IP you want it to report. By default, **minecraft-dropbox-server** will auto-detect your public IP. However, it makes sense that you'd want to change it (e.g. if you'd like to report some LAN/VPN-based IP)
@@ -79,6 +88,45 @@ Those are for using together with the **mc-dbox-central-server** application, as
 # Are you able to automatically launch Minecraft or add the current IP to its list?
 
 Not at the moment. Maybe in the future something can be arranged!
+
+# What happens if I have multiple jars in the server folder?
+**minecraft-dropbox-server** will use the first it finds. You can specify the exact jar (only filename, not path, as it is assumed to be in the server folder) with the `-j`,`--jar` option.
+
+# Example usage
+
+Below are some example use cases of the **mc-dbox-server** utility. There are no examples involving the central server because it is still being worked on and most people won't find a use case for it.
+
+## Starting/joining a server of a shared Dropbox folder
+Say you have a folder named "Minecraft Server Friends" and you want to join the server (if it is running), or run it yourself, if it isn't. Just do
+
+	mc-dbox-server -n "Minecraft Server Friends"
+
+**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option
+
+## Starting/joining a server of a shared Dropbox folder and reporting a different ip
+Say you have a folder named "Minecraft Server Friends" and you want to join the server (if it is running), or run it yourself, if it isn't.  You also want to report your ip as `16.10.12.3` because this is your local VPN IP.
+Just do
+
+	mc-dbox-server -n "Minecraft Server Friends" -i 16.10.12.3
+
+**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option
+
+## Starting/joining a server by manually supplying the dropbox home folder (e.g. for MEGA or some other service)
+If you're using an alternative service (e.g. MEGA), or your Dropbox folder somehow can't be auto-located, use the `-d` option togehter with the already seen `-n`
+
+	mc-dbox-server -n "Minecraft Server Friends" -d /home/jorl17/my_dropbox_folder
+
+## Starting/joining a server by manually supplying the server folder
+If the previous examples don't fit your use case, you might want to explicitly link the server folder itself, bypassing the `-n` and `-d` options. You can do this with the `-s` option.
+
+	mc-dbox-server -s "/home/jorl17/Dropbox/Minecraft Server Friends"
+
+**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option
+
+## Changing the server JVM arguments
+The server JVM arguments can be changed with the `-o`,`--jvm-options` option:
+
+	mc-dbox-server -n "Minecraft Server Friends" -o "-Xmx16G -Xms10G"
 
 # Full option list
 

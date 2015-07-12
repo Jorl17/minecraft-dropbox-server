@@ -32,7 +32,7 @@ from os.path import isfile
 __author__ = 'jorl17'
 
 CENTRAL_SERVER_ADDRESS='http://localhost:9000'
-DEFAULT_JVM_OPTIONS='-Xmx3G -Xms2G -jar'
+DEFAULT_JVM_OPTIONS='-Xmx3G -Xms2G'
 
 #From http://stackoverflow.com/a/12118327
 def _get_appdata_path():
@@ -179,6 +179,7 @@ def parse_input():
     parser.add_option('-j', '--jar',help='Server jar name. By default, the first jar found in the server folder will be used.',dest='jar_name', type='string', default=None)
     parser.add_option('-o', '--jvm-options',help='JVM options to use when starting the server (Default: "{}")'.format(DEFAULT_JVM_OPTIONS),dest='jvm_options', type='string', default=DEFAULT_JVM_OPTIONS)
     parser.add_option('-i', '--ip',help='Set the IP to report in case a server is started. By default, the public facing IP is auto-detected.',dest='ip', type='string', default=None)
+    parser.add_option('-c', '--clear',help='Clear the saved state of the current server session. USE WITH CARE. This notifies everyone that the server isn\'t actually running. If it _is_ running, it is a very bad idea to do this. Use only after a system crash or similar accident.',dest='clear', action='store_true', default=False)
 
     (options, args) = parser.parse_args()
 
@@ -198,6 +199,14 @@ def parse_input():
             dropbox_path = autodetect_dropbox_home()
         full_path = os.path.join(dropbox_path, options.server_name)
 
+    if options.clear:
+        print('ARE YOU SURE THAT THE SERVER REALLY IS STOPPED? (y/n) ')
+        choice = input().lower()
+        if choice in ['y', 'yes', 'ye', 's']:
+            mark_server_as_stopped(options.server_address, full_path, options.secret_key)
+            exit("Done. All status cleared. Don't come complaining if you mess up someone's game!")
+        else:
+            exit('Status clear aborted.')
 
     if options.jar_name:
         jar_name = options.jar_name

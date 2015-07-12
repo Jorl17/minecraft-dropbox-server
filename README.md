@@ -48,9 +48,9 @@ You still need to manage your **port forwarding rules** by yourself. This just h
 
 # Why are there two applications? And what are they?
 
-**mc-dbox-server** is the main application that you'll always use when you want to start or join a server. Most people will want to run this with the `-n`,`--server-name` or `-p`,`-path`option (and possibly `-d`,`--dropbox-path`).
+**mc-dbox-server** is the main application that you'll always use when you want to start or join a server. Most people will want to run this with the `-n`,`--server-name` or `-p`,`--path`option (and possibly `-d`,`--dropbox-path`).
 
-**mc-dbox-central-server** is an optional simple web-server with a REST-based API that can be used as an alternative to Dropbox, to further avoid conflicts. This is described in more detail [in the previous question](#how-does-it-work). You'll probably never need it, but that's why **mc-dbox-server** has the **optional** `-s`,`--server-address` and `-k`,`--server-key` flags.
+**mc-dbox-central-server** is an optional simple web-server with a REST-based API (to be fair, it isn't really REST...it's more of a light take on the HTTP protocol) that can be used as an alternative to Dropbox, to further avoid conflicts. This is described in more detail [in the previous question](#how-does-it-work). You'll probably never need it, but that's why **mc-dbox-server** has the **optional** `-s`,`--server-address` and `-k`,`--server-key` flags.
 
 # How do I install/uninstall it?
  Just clone the repository and run ``install.sh``, or ``uninstall.sh`` to remove it. It will install to /usr/bin, but you can change this by passing your desired prefix to install.sh, as an argument. This will install the **mc-dbox-server** application and make it available for you to run.
@@ -75,10 +75,10 @@ You still need to manage your **port forwarding rules** by yourself. This just h
 You can, it's easy! Just use the `-o`, `--jvm-options`flag. The defaults are `-Xmx3G -Xms2G` and you probably ought to change them.
 
 # Can I change the IP that mc-dbox-server reports?
-Sure. Use `-i`,`--ip`to set the IP you want it to report. By default, **minecraft-dropbox-server** will auto-detect your public IP. However, it makes sense that you'd want to change it (e.g. if you'd like to report some LAN/VPN-based IP)
+Sure. Use `-i`,`--ip`to set the IP you want it to report. By default, **minecraft-dropbox-server** will auto-detect your public IP. However, it makes sense that you'd want to change it (e.g. if you'd like to report some LAN/VPN-based IP).
 
 # Can I use multiple instances of mc-dbox-server at the same time?
-Absolutely! It doesn't matter if you're the host of one, both or neither. **minecraft-dropbox-server** stores its files in a per-app folder, ensuring it all works straight out of the box
+Absolutely! It doesn't matter if you're the host of one, both or neither. **minecraft-dropbox-server** stores its files in a per-server folder, ensuring it all works straight out of the box.
 
 # What happens if the server crashes? What if the server is stopped but mc-dbox-server thinks it's not?
 If the server itself crashes, then **minecraft-dropbox-server** will detect this and ensure that you are no longer reported as a host. However, if the computer or **minecraft-dropbox-server** itself crashes, the file is left hanging. This could be overcome by periodically updating the file and checking the date, or using the centralized server, but a more simple solution (and probably adequate, since this is for a small group of friends) is to use the **`-c`,`--clear` option, which completely erases the current host information**. Use this with care!
@@ -111,10 +111,10 @@ Just do
 
 	mc-dbox-server -n "Minecraft Server Friends" -i 16.10.12.3
 
-**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option
+**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option.
 
 ## Starting/joining a server by manually supplying the dropbox home folder (e.g. for MEGA or some other service)
-If you're using an alternative service (e.g. MEGA), or your Dropbox folder somehow can't be auto-located, use the `-d` option togehter with the already seen `-n`
+If you're using an alternative service (e.g. MEGA), or your Dropbox folder somehow can't be auto-located, use the `-d` option togehter with the already seen `-n`.
 
 	mc-dbox-server -n "Minecraft Server Friends" -d /home/jorl17/my_dropbox_folder
 
@@ -123,7 +123,7 @@ If the previous examples don't fit your use case, you might want to explicitly l
 
 	mc-dbox-server -s "/home/jorl17/Dropbox/Minecraft Server Friends"
 
-**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option
+**mc-dbox-server** will start the server for you if it needs to. If someone is already running it, it will tell you the IP. If this is a mistake (which is rare), check the `-c`,`--clear` option.
 
 ## Changing the server JVM arguments
 The server JVM arguments can be changed with the `-o`,`--jvm-options` option:
@@ -167,5 +167,7 @@ Options:
                         isn't actually running. If it _is_ running, it is a
                         very bad idea to do this. Use only after a system
                         crash or similar accident.
+  -q, --query-status    Just query the status of the server (is it running,
+                        and who is running it?).
 
 ```

@@ -180,6 +180,7 @@ def parse_input():
     parser.add_option('-o', '--jvm-options',help='JVM options to use when starting the server (Default: "{}")'.format(DEFAULT_JVM_OPTIONS),dest='jvm_options', type='string', default=DEFAULT_JVM_OPTIONS)
     parser.add_option('-i', '--ip',help='Set the IP to report in case a server is started. By default, the public facing IP is auto-detected.',dest='ip', type='string', default=None)
     parser.add_option('-c', '--clear',help='Clear the saved state of the current server session. USE WITH CARE. This notifies everyone that the server isn\'t actually running. If it _is_ running, it is a very bad idea to do this. Use only after a system crash or similar accident.',dest='clear', action='store_true', default=False)
+    parser.add_option('-q', '--query-status',help='Just query the status of the server (is it running, and who is running it?).',dest='query_status', action='store_true', default=False)
 
     (options, args) = parser.parse_args()
 
@@ -199,6 +200,9 @@ def parse_input():
             dropbox_path = autodetect_dropbox_home()
         full_path = os.path.join(dropbox_path, options.server_name)
 
+    if options.clear and options.query_status:
+        parser.error("Can't use both the -c and -q options. Choose one of them!")
+
     if options.clear:
         print('ARE YOU SURE THAT THE SERVER REALLY IS STOPPED? (y/n) ')
         choice = input().lower()
@@ -207,6 +211,12 @@ def parse_input():
             exit("Done. All status cleared. Don't come complaining if you mess up someone's game!")
         else:
             exit('Status clear aborted.')
+    elif options.query_status:
+        status = is_someone_running_server(options.server_address, full_path, options.secret_key)
+        if status:
+            exit('Server is running at {:s}'.format(status))
+        else:
+            exit('Server is not running.')
 
     if options.jar_name:
         jar_name = options.jar_name
@@ -221,11 +231,11 @@ def parse_input():
         ip = get_public_ip()
 
 
-    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip
+    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip, options.query_status
 
 def go():
 
-        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip = parse_input()
+        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip, just_query = parse_input()
         status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key)
         if status:
             print('Server is running at {:s}'.format(status))

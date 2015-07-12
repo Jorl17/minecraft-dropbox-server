@@ -5,9 +5,11 @@ Ever tried running a **Minecraft server** together with your friends using Dropb
 
 	mc-dbox-server -n "Minecraft Server Friends"
 
+With only these options, **minecraft-dropbox-server** will check if a server is already running and tell you its IP (it will auto-detect your dropbox folder). If there is no server, it will start its own and make sure everyone else knows its running.
+
 Install instructions can be found [here](#how-do-i-installuninstall-it). Some examples can be found [here](#example-usage). **It should run in Windows, Mac OS X and Linux**, but it hasn't been tested in Windows...care to *help*? :)
 
-With only these options, **minecraft-dropbox-server** will check if a server is already running and tell you its IP (it will auto-detect your dropbox folder). If there is no server, it will start its own and make sure everyone else knows its running. There are many tunable options, and you can even use a central server for some additional bookkeeping (in case you there is some problem with the database backend...it's really a niche option)
+There are many tunable options, and you can even use a central server for some additional bookkeeping (in case you there is some problem with the database backend...it's really a niche option)
 
 Table of Contents
 =================

@@ -159,8 +159,8 @@ def parse_input():
 
     (options, args) = parser.parse_args()
 
-    if not options.secret_key:
-        parser.error('A secret key is required! Use -k')
+    if options.server_address and not options.secret_key:
+        parser.error('A secret key is required when using a central server! Use -k')
     if (options.dropbox_path or options.server_name) and options.server_path:
         parser.error('Cannot use -p with -d/-n.')
     if not options.server_name and not options.server_path:

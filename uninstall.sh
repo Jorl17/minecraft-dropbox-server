@@ -7,4 +7,4 @@ if [ -z "$1" ]
 fi
 
 rm -f $PREFIX/mc-dbox-server
-rm -f $PREFIX/mc-dbox-central-server
+#rm -f $PREFIX/mc-dbox-central-server

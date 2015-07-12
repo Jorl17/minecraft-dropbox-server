@@ -56,12 +56,12 @@ You still need to manage your **port forwarding rules** by yourself. This just h
 ##Examples:
 ### Install
     git clone https://github.com/Jorl17/minecraft-dropbox-server
-    cd NowCrawling
+    cd minecraft-dropbox-server
     chmod +x install.sh uninstall.sh
     sudo ./install.sh
 ### Install to /usr/local prefix
     git clone https://github.com/Jorl17/minecraft-dropbox-server
-    cd NowCrawling
+    cd minecraft-dropbox-server
     chmod +x install.sh uninstall.sh
     sudo ./install.sh /usr/local
 ### Uninstall 

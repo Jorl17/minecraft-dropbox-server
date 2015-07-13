@@ -180,7 +180,7 @@ def parse_input():
     parser.add_option('-o', '--jvm-options',help='JVM options to use when starting the server (Default: "{}")'.format(DEFAULT_JVM_OPTIONS),dest='jvm_options', type='string', default=DEFAULT_JVM_OPTIONS)
     parser.add_option('-i', '--ip',help='Set the IP to report in case a server is started. By default, the public facing IP is auto-detected.',dest='ip', type='string', default=None)
     parser.add_option('-c', '--clear',help='Clear the saved state of the current server session. USE WITH CARE. This notifies everyone that the server isn\'t actually running. If it _is_ running, it is a very bad idea to do this. Use only after a system crash or similar accident.',dest='clear', action='store_true', default=False)
-    parser.add_option('-q', '--query-status',help='Just query the status of the server (is it running, and who is running it?).',dest='query_status', action='store_true', default=False)
+    parser.add_option('-q', '--query-status',help='Just query the status of the server (is it running, and who is running it?)',dest='query_status', action='store_true', default=False)
 
     (options, args) = parser.parse_args()
 
@@ -231,11 +231,11 @@ def parse_input():
         ip = get_public_ip()
 
 
-    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip, options.query_status
+    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip
 
 def go():
 
-        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip, just_query = parse_input()
+        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip = parse_input()
         status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key)
         if status:
             print('Server is running at {:s}'.format(status))

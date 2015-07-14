@@ -103,6 +103,9 @@ def check_dropbox_file(server_folder_path):
     except:
         return False
 
+def directory_exists(dir):
+    return os.path.exists(dir) and os.path.isdir(dir)
+
 
 def is_someone_running_server(central_server_address, server_folder_path, secret_key):
     status = check_central_server(secret_key, central_server_address)
@@ -202,6 +205,9 @@ def parse_input():
 
     if options.clear and options.query_status:
         parser.error("Can't use both the -c and -q options. Choose one of them!")
+
+    if not directory_exists(full_path):
+        parser.error("Directory {} does not exist.".format(full_path))
 
     if options.clear:
         print('ARE YOU SURE THAT THE SERVER REALLY IS STOPPED? (y/n) ')

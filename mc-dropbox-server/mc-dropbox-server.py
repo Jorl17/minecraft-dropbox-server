@@ -164,6 +164,7 @@ def start_local_server(server_folder, jvm_flags=DEFAULT_JVM_OPTIONS, server_jar=
     os.chdir(server_folder)
     command = 'java {:s} -jar {:s} '.format(jvm_flags, server_jar)
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+    print('Server process started. Waiting for it to finish...')
     process.wait()
 
 

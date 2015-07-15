@@ -240,7 +240,8 @@ def update_dropbox_state(ip, server_folder):
 
     if ip:
         with open(path, 'w') as f:
-            f.write(ip)
+            f.write(ip + "\n")
+            f.write(time.strftime('%Y/%m/%d %H:%M:%S'))
     else:
         try:
             os.remove(path)

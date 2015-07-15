@@ -23,6 +23,7 @@ Table of Contents
       * [Uninstall](#uninstall)
       * [Uninstall from /usr/local prefix](#uninstall-from-usrlocal-prefix)
   * [If mc-dbox-server executes my Minecraft Server, can I change the JVM arguments? What are the defaults?](#if-mc-dbox-server-executes-my-minecraft-server-can-i-change-the-jvm-arguments-what-are-the-defaults)
+  * [Does mc-dbox-server use a heartbeat? Can I configure it or disable it?](#does-mc-dbox-server-use-a-heartbeat-can-i-configure-it-or-disable-it)
   * [Can I change the IP that mc-dbox-server reports?](#can-i-change-the-ip-that-mc-dbox-server-reports)
   * [Can I use multiple instances of mc-dbox-server at the same time?](#can-i-use-multiple-instances-of-mc-dbox-server-at-the-same-time)
   * [What happens if the server crashes? What if the server is stopped but mc-dbox-server thinks it's not?](#what-happens-if-the-server-crashes-what-if-the-server-is-stopped-but-mc-dbox-server-thinks-its-not)
@@ -35,6 +36,7 @@ Table of Contents
     * [Starting/joining a server by manually supplying the dropbox home folder (e.g. for MEGA or some other service)](#startingjoining-a-server-by-manually-supplying-the-dropbox-home-folder-eg-for-mega-or-some-other-service)
     * [Starting/joining a server by manually supplying the server folder](#startingjoining-a-server-by-manually-supplying-the-server-folder)
     * [Changing the server JVM arguments](#changing-the-server-jvm-arguments)
+    * [Disabling the heartbeat feature](#disabling-the-heartbeat-feature)
   * [Full option list](#full-option-list)
 
 TOC created with [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
@@ -74,6 +76,11 @@ You still need to manage your **port forwarding rules** by yourself. This just h
 # If mc-dbox-server executes my Minecraft Server, can I change the JVM arguments? What are the defaults?
 You can, it's easy! Just use the `-o`, `--jvm-options`flag. The defaults are `-Xmx3G -Xms2G` and you probably ought to change them.
 
+# Does mc-dbox-server use a heartbeat? Can I configure it or disable it?
+*mc-dbox-server* uses a heartbeat mechanism to deal with crashes and leftover files. The way it works is that the file containining the current IP is periodically updated (this period, called the heartbeat time, can be set with `-b`). If twice of the heartbeat time has passed since a file was last changed, then the server is considered to have crashed and will be reported as offline (the user is informed of why this happened). This way, an unexpected crash can be recovered from with the heartbeat system, making the use of the `-c` options now deprecated.
+
+You can **change** the heartbeat time with the `-b` option, and you should use a sensible value (it is, by default, 60 seconds, meaning files older than 120 seconds are considered as invalid and the server is marked as not running). You can also **disable** the heartbeat by setting its time to zero (`-b 0`). Doing so means that the file is updated with the status only once (when the server is started or stopped), and timestamps are not checked. If the server crashed and the file was not deleted, then the only way to make the system think that it is not running is to use the `-c` option. This was the default behaviour in older versions.
+
 # Can I change the IP that mc-dbox-server reports?
 Sure. Use `-i`,`--ip`to set the IP you want it to report. By default, **minecraft-dropbox-server** will auto-detect your public IP. However, it makes sense that you'd want to change it (e.g. if you'd like to report some LAN/VPN-based IP).
 
@@ -81,14 +88,12 @@ Sure. Use `-i`,`--ip`to set the IP you want it to report. By default, **minecraf
 Absolutely! It doesn't matter if you're the host of one, both or neither. **minecraft-dropbox-server** stores its files in a per-server folder, ensuring it all works straight out of the box.
 
 # What happens if the server crashes? What if the server is stopped but mc-dbox-server thinks it's not?
-If the server itself crashes, then **minecraft-dropbox-server** will detect this and ensure that you are no longer reported as a host. However, if the computer or **minecraft-dropbox-server** itself crashes, the file is left hanging. This could be overcome by periodically updating the file and checking the date, or using the centralized server, but a more simple solution (and probably adequate, since this is for a small group of friends) is to use the **`-c`,`--clear` option, which completely erases the current host information**. Use this with care!
+If the server itself crashes, then **minecraft-dropbox-server** will detect this and ensure that you are no longer reported as a host. However, if the computer or **minecraft-dropbox-server** itself crashes, the file is left hanging. If you use the heartbeat option, which is enabled by default, you should not have any problems (see [here](#does-mc-dbox-server-use-a-heartbeat-can-i-configure-it-or-disable-it) for more information). If you have disabled heartbeats (which I strongly advise you *don't*), you need to use the`-c`,`--clear` option, which completely erases the current host information**. Use this with care!
 
 # What are the secret key options for?
-
 Those are for using together with the **mc-dbox-central-server** application, as explained [here](#why-are-there-two-applications-and-what-are-they). You can safely ignore them.
 
 # Are you able to automatically launch Minecraft or add the current IP to its list?
-
 Not at the moment. Maybe in the future something can be arranged!
 
 # What happens if I have multiple jars in the server folder?
@@ -130,6 +135,11 @@ The server JVM arguments can be changed with the `-o`,`--jvm-options` option:
 
 	mc-dbox-server -n "Minecraft Server Friends" -o "-Xmx16G -Xms10G"
 
+## Disabling the heartbeat feature
+The heartbeat feature can be disabled with `-b`
+
+	mc-dbox-server -n "Minecraft Server Friends" -b 0
+
 # Full option list
 
 ```
@@ -162,12 +172,22 @@ Options:
                         "-Xmx3G -Xms2G")
   -i IP, --ip=IP        Set the IP to report in case a server is started. By
                         default, the public facing IP is auto-detected.
-  -c, --clear           Clear the saved state of the current server session.
-                        USE WITH CARE. This notifies everyone that the server
-                        isn't actually running. If it _is_ running, it is a
-                        very bad idea to do this. Use only after a system
-                        crash or similar accident.
+  -b HEARTBEAT_TIME, --heartbeat=HEARTBEAT_TIME
+                        Set the heartbeat time (interval, in seconds, between
+                        successive updates of server status to Dropbox). If
+                        the Dropbox status hasn't been updated in 2*[heartbeat
+                        time], the server is considered to be stopped. Set to
+                        0 if you want to disable heartbeats. By disabling
+                        them, the server status is updated only once and the
+                        modification time is ignored when querying for time.
+                        (Default: 60)
   -q, --query-status    Just query the status of the server (is it running,
-                        and who is running it?).
-
+                        and who is running it?)
+  -c, --clear           DEPRECATED: Should not be needed if appropriate
+                        heartbeat values are chosen. Clear the saved state of
+                        the current server session. USE WITH CARE. This
+                        notifies everyone that the server isn't actually
+                        running. If it _is_ running, it is a very bad idea to
+                        do this. Use only after a system crash or similar
+                        accident.
 ```

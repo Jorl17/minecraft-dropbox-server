@@ -21,6 +21,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with minecraft-dropbox-server.  If not, see <http://www.gnu.org/licenses/>.
 ##
+import datetime
 from optparse import OptionParser
 import os
 import subprocess
@@ -28,13 +29,56 @@ import urllib.request
 import urllib.parse
 import json
 from os.path import isfile
+import time
+from threading import Thread
 
 __author__ = 'jorl17'
 
 CENTRAL_SERVER_ADDRESS='http://localhost:9000'
 DEFAULT_JVM_OPTIONS='-Xmx3G -Xms2G'
+DEFAULT_HEARTBEAT = 60
 
-#From http://stackoverflow.com/a/12118327
+#------------------------------------------------------------------------------
+# Threading stuff, to be able to run a thread which periodically updates the
+# server status
+#------------------------------------------------------------------------------
+global_threads = []
+
+def stop_hanging_threads():
+    for thread in global_threads:
+        thread.stop()
+
+class PeriodicThread(Thread):
+    def __init__(self, f, interval):
+        self.stopped = False
+        self.f = f
+        self.interval = interval
+        Thread.__init__(self)
+    def run(self):
+        global global_threads
+        global_threads += [self]
+        while not self.stopped:
+            self.f()
+
+            # Sleep in ticks of 1 so we can be aborted decently
+            slept = 0
+            while slept < self.interval:
+                if self.stopped:
+                    break
+                remaining = self.interval - slept
+                time_to_sleep = min(1, remaining)
+                time.sleep(time_to_sleep)
+                slept += time_to_sleep
+        global_threads.remove(self)
+    def stop(self):
+        self.stopped = True
+
+
+#------------------------------------------------------------------------------
+# Dropbox folder auto-detection stuff.
+# From http://stackoverflow.com/a/12118327
+#------------------------------------------------------------------------------
+
 def _get_appdata_path():
     import ctypes
     from ctypes import wintypes, windll
@@ -72,6 +116,39 @@ def autodetect_dropbox_home():
 
     return base64.b64decode(data[1]).decode('utf-8')
 
+#------------------------------------------------------------------------------
+# Used later on to determine if a file should be considered outdated
+#------------------------------------------------------------------------------
+def get_seconds_since_last_file_change(file_path):
+    file_change_time = os.path.getmtime(file_path)
+    return (datetime.datetime.now() - datetime.datetime.fromtimestamp(file_change_time)).total_seconds()
+
+#------------------------------------------------------------------------------
+# To check that the server directory really exists
+#------------------------------------------------------------------------------
+def directory_exists(dir):
+    return os.path.exists(dir) and os.path.isdir(dir)
+
+#------------------------------------------------------------------------------
+# To auto-determine the user's public IP. FIXME: We could add several sources
+# and a time-out, to be more resilient.
+#------------------------------------------------------------------------------
+def get_public_ip():
+    f = urllib.request.urlopen('http://ipv4bot.whatismyipaddress.com')
+    return f.read().decode()
+
+#------------------------------------------------------------------------------
+# To automatically find the jar of the server
+#------------------------------------------------------------------------------
+def find_first_jar(full_path):
+    all_jars = [f for f in os.listdir(full_path) if isfile(os.path.join(full_path, f)) and f.lower().endswith(".jar")]
+    return all_jars[0] if all_jars else None
+
+#------------------------------------------------------------------------------
+# Ask the central server what's the current status of the Minecraft server.
+# All we need to do is a GET, passing the key. The server can be HTTPS for more
+# security.
+#------------------------------------------------------------------------------
 def check_central_server(secret_key, server = CENTRAL_SERVER_ADDRESS):
     if not server:
         return None
@@ -88,8 +165,16 @@ def check_central_server(secret_key, server = CENTRAL_SERVER_ADDRESS):
         print('Could not access central server: ' + str(e))
         return None
 
-
-def check_dropbox_file(server_folder_path):
+#------------------------------------------------------------------------------
+# Check Dropbox to see if the server is running. If there is no file, then
+# the server is not running. If there is, we check if it is within the
+# valid threshold (if it's older than that, we consider it to be outdated)
+#
+# Note that if valid_last_change_threshold aliases to False
+# (e.g. 0, False, None), this check is not performed and files are considered
+# regardless of their age.
+#------------------------------------------------------------------------------
+def check_dropbox_file(server_folder_path, valid_last_change_threshold):
     path = os.path.join(server_folder_path, 'mc_dropbox_server_status.txt')
 
     try:
@@ -97,19 +182,27 @@ def check_dropbox_file(server_folder_path):
             lines = f.readlines()
             if lines:
                 ip = lines[0].strip()
-                return ip
+                seconds_since_heartbeat = get_seconds_since_last_file_change(path)
+                if not valid_last_change_threshold or seconds_since_heartbeat < valid_last_change_threshold:
+                    return ip
+                else:
+                    print("Dropbox reported {} was running the server, but last heartbeat was {} seconds ago! Considering nobody is running server...".format(ip, seconds_since_heartbeat))
+                    #update_dropbox_state(None, server_folder_path)
+                    return False
             else:
                 return False
     except:
         return False
 
-def directory_exists(dir):
-    return os.path.exists(dir) and os.path.isdir(dir)
 
-
-def is_someone_running_server(central_server_address, server_folder_path, secret_key):
+#------------------------------------------------------------------------------
+# Check if someone is running the server. In most cases, this acts as a direct
+# wrapper to check_dropbox_file. However, if the central server is used, it
+# checks both (currently we prefer Dropbox if there is a disagreement)
+#------------------------------------------------------------------------------
+def is_someone_running_server(central_server_address, server_folder_path, secret_key, time_threshold):
     status = check_central_server(secret_key, central_server_address)
-    status_dropbox = check_dropbox_file(server_folder_path)
+    status_dropbox = check_dropbox_file(server_folder_path, time_threshold)
     if status != None:
         if status == status_dropbox:
             return status
@@ -119,6 +212,10 @@ def is_someone_running_server(central_server_address, server_folder_path, secret
     else:
         return status_dropbox
 
+#------------------------------------------------------------------------------
+# Inform the central server of a change in status. This equates to a POST
+# on the address with a couple of pre-defined parameters (message and ip)
+#------------------------------------------------------------------------------
 def inform_central_server(ip, secret_key, central_server_address=CENTRAL_SERVER_ADDRESS):
     if not central_server_address:
         return
@@ -134,12 +231,10 @@ def inform_central_server(ip, secret_key, central_server_address=CENTRAL_SERVER_
         print('Could not inform central server: ' + str(e))
         return None
 
-
-def get_public_ip():
-    f = urllib.request.urlopen('http://ipv4bot.whatismyipaddress.com')
-    return f.read().decode()
-
-
+#------------------------------------------------------------------------------
+# Update the status of the Dropbox file. We either log the IP or delete the
+# file if the server is not running.
+#------------------------------------------------------------------------------
 def update_dropbox_state(ip, server_folder):
     path = os.path.join(server_folder, 'mc_dropbox_server_status.txt')
 
@@ -152,25 +247,42 @@ def update_dropbox_state(ip, server_folder):
         except:
             pass
 
+#------------------------------------------------------------------------------
+# Mark the server as running. This usually just results in updating the
+# Dropbox state. However, if the central server is used, it is also notified.
+#------------------------------------------------------------------------------
 def mark_server_as_running(ip, central_server, server_folder, secret_key):
     inform_central_server(ip, secret_key, central_server)
     update_dropbox_state(ip, server_folder)
 
+#------------------------------------------------------------------------------
+# Mark the server as stopped. This usually just results in updating the
+# Dropbox state. However, if the central server is used, it is also notified.
+# It is equivalent to
+# inform_central_server(None, central_server, server_folder, secret_key
+#------------------------------------------------------------------------------
 def mark_server_as_stopped(central_server, server_folder, secret_key):
-    inform_central_server(None, secret_key, central_server)
-    update_dropbox_state(None, server_folder)
+    mark_server_as_running(None, central_server, server_folder, secret_key)
 
-def start_local_server(server_folder, jvm_flags=DEFAULT_JVM_OPTIONS, server_jar='minecraft_server.1.8.3.jar'):
+#------------------------------------------------------------------------------
+# Start the local server with the givem JVM arguments. Once it is started,
+# keep updating the state of the Dropbox file (if a heartbeat time is given).
+# If no heartbeat time is given, update it only when starting and when
+# quitting.
+#------------------------------------------------------------------------------
+def start_local_server(server_folder, jvm_flags, server_jar, ip, remote_server_address, full_path_to_server, secret_key, heartbeat_time):
     os.chdir(server_folder)
     command = 'java {:s} -jar {:s} '.format(jvm_flags, server_jar)
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     print('Server process started. Waiting for it to finish...')
-    process.wait()
-
-
-def find_first_jar(full_path):
-    all_jars = [f for f in os.listdir(full_path) if isfile(os.path.join(full_path, f)) and f.lower().endswith(".jar")]
-    return all_jars[0] if all_jars else None
+    if heartbeat_time:
+        updaterThread = PeriodicThread(lambda: mark_server_as_running(ip, remote_server_address, full_path_to_server, secret_key), heartbeat_time)
+        updaterThread.start()
+        process.wait()
+        updaterThread.stop()
+    else:
+        mark_server_as_running(ip, remote_server_address, full_path_to_server, secret_key)
+        process.wait()
 
 
 def parse_input():
@@ -183,8 +295,9 @@ def parse_input():
     parser.add_option('-j', '--jar',help='Server jar name. By default, the first jar found in the server folder will be used.',dest='jar_name', type='string', default=None)
     parser.add_option('-o', '--jvm-options',help='JVM options to use when starting the server (Default: "{}")'.format(DEFAULT_JVM_OPTIONS),dest='jvm_options', type='string', default=DEFAULT_JVM_OPTIONS)
     parser.add_option('-i', '--ip',help='Set the IP to report in case a server is started. By default, the public facing IP is auto-detected.',dest='ip', type='string', default=None)
-    parser.add_option('-c', '--clear',help='Clear the saved state of the current server session. USE WITH CARE. This notifies everyone that the server isn\'t actually running. If it _is_ running, it is a very bad idea to do this. Use only after a system crash or similar accident.',dest='clear', action='store_true', default=False)
+    parser.add_option('-b', '--heartbeat',help="Set the heartbeat time (interval, in seconds, between successive updates of server status to Dropbox). If the Dropbox status hasn't been updated in 2*[heartbeat time], the server is considered to be stopped. Set to 0 if you want to disable heartbeats. By disabling them, the server status is updated only once and the modification time is ignored when querying for time. (Default: {})".format(DEFAULT_HEARTBEAT), dest='heartbeat_time', type='int', default=DEFAULT_HEARTBEAT)
     parser.add_option('-q', '--query-status',help='Just query the status of the server (is it running, and who is running it?)',dest='query_status', action='store_true', default=False)
+    parser.add_option('-c', '--clear',help='DEPRECATED: Should not be needed if appropriate heartbeat values are chosen. Clear the saved state of the current server session. USE WITH CARE. This notifies everyone that the server isn\'t actually running. If it _is_ running, it is a very bad idea to do this. Use only after a system crash or similar accident.',dest='clear', action='store_true', default=False)
 
     (options, args) = parser.parse_args()
 
@@ -210,16 +323,22 @@ def parse_input():
     if not directory_exists(full_path):
         parser.error("Directory {} does not exist.".format(full_path))
 
+
+    if options.heartbeat_time < 0:
+        parser.error('Invalid heartbeat time ({}). Please supply a positive integer!'.format(options.heartbeat_time))
+    elif options.heartbeat_time == 0:
+        print('Disabling heartbeat...')
+
     if options.clear:
         print('ARE YOU SURE THAT THE SERVER REALLY IS STOPPED? (y/n) ')
         choice = input().lower()
         if choice in ['y', 'yes', 'ye', 's']:
-            mark_server_as_stopped(options.server_address, full_path, options.secret_key)
+            mark_server_as_stopped(options.server_address, full_path, options.secret_key, 2*options.heartbeat_time)
             exit("Done. All status cleared. Don't come complaining if you mess up someone's game!")
         else:
             exit('Status clear aborted.')
     elif options.query_status:
-        status = is_someone_running_server(options.server_address, full_path, options.secret_key)
+        status = is_someone_running_server(options.server_address, full_path, options.secret_key, 2*options.heartbeat_time)
         if status:
             exit('Server is running at {:s}'.format(status))
         else:
@@ -232,31 +351,32 @@ def parse_input():
         if not jar_name:
             parser.error('No jar files were found in server folder ({}) and no jar name supplied!'.format(full_path))
 
+
     if options.ip:
         ip = options.ip
     else:
         ip = get_public_ip()
 
 
-    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip
+    return options.server_address, options.secret_key, full_path, jar_name, options.jvm_options, ip, options.heartbeat_time
 
 def go():
-
-        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip = parse_input()
-        status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key)
+        remote_server_address, secret_key, full_path_to_server, jar_name, jvm_options, ip, heartbeat_time = parse_input()
+        status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key, 2*heartbeat_time)
         if status:
             print('Server is running at {:s}'.format(status))
         else:
             try:
                 print('Server is not running. Starting...')
-                mark_server_as_running(ip, remote_server_address, full_path_to_server, secret_key)
-                start_local_server(full_path_to_server, jvm_options, jar_name)
+                start_local_server(full_path_to_server, jvm_options, jar_name, ip, remote_server_address, full_path_to_server, secret_key, heartbeat_time)
                 print('Server stopped. Updating server and Dropbox...')
                 mark_server_as_stopped(remote_server_address, full_path_to_server, secret_key)
                 print('Done!')
             except KeyboardInterrupt:
                 print('Caught interrupt. Terminating and marking as stopped if we were the server.')
-                status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key)
+                # Pass no heartbeat time because we don't care about that now! We just want to clear the state if we
+                # were the last ones reported to be hosting the server
+                status = is_someone_running_server(remote_server_address, full_path_to_server, secret_key, None)
                 if status and status == ip:
                     print('We were the server! Marking as stopped')
                     mark_server_as_stopped(remote_server_address, full_path_to_server, secret_key)
@@ -267,3 +387,4 @@ def main():
     os.chdir(orig_dir)
 
 main()
+stop_hanging_threads()

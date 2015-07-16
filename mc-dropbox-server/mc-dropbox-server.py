@@ -130,12 +130,18 @@ def directory_exists(dir):
     return os.path.exists(dir) and os.path.isdir(dir)
 
 #------------------------------------------------------------------------------
-# To auto-determine the user's public IP. FIXME: We could add several sources
-# and a time-out, to be more resilient.
+# To auto-determine the user's public IP. FIXME: We could add a time-out
 #------------------------------------------------------------------------------
 def get_public_ip():
-    f = urllib.request.urlopen('http://ipv4bot.whatismyipaddress.com')
-    return f.read().decode()
+    addresses = ['http://ipv4bot.whatismyipaddress.com', 'http://ipinfo.io/ip', 'http://www.trackip.net/ip']
+    for address in addresses:
+        try:
+            f = urllib.request.urlopen(address)
+            return f.read().decode().strip()
+        except:
+            pass
+
+    exit('Cannot reliably determine your IP. Please use the -i options.')
 
 #------------------------------------------------------------------------------
 # To automatically find the jar of the server

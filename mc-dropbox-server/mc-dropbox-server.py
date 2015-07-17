@@ -141,7 +141,7 @@ def get_public_ip():
         except:
             pass
 
-    exit('Cannot reliably determine your IP. Please use the -i options.')
+    exit('Cannot reliably determine your IP. Please use the -i option.')
 
 #------------------------------------------------------------------------------
 # To automatically find the jar of the server
@@ -266,7 +266,7 @@ def mark_server_as_running(ip, central_server, server_folder, secret_key):
 # Mark the server as stopped. This usually just results in updating the
 # Dropbox state. However, if the central server is used, it is also notified.
 # It is equivalent to
-# inform_central_server(None, central_server, server_folder, secret_key
+# mark_server_as_running(None, central_server, server_folder, secret_key)
 #------------------------------------------------------------------------------
 def mark_server_as_stopped(central_server, server_folder, secret_key):
     mark_server_as_running(None, central_server, server_folder, secret_key)

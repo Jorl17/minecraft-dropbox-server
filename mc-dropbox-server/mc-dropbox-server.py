@@ -37,6 +37,7 @@ __author__ = 'jorl17'
 CENTRAL_SERVER_ADDRESS='http://localhost:9000'
 DEFAULT_JVM_OPTIONS='-Xmx3G -Xms2G'
 DEFAULT_HEARTBEAT = 60
+IP_REQUEST_TIMEOUT = 2
 
 #------------------------------------------------------------------------------
 # Threading stuff, to be able to run a thread which periodically updates the
@@ -136,7 +137,7 @@ def get_public_ip():
     addresses = ['http://ipv4bot.whatismyipaddress.com', 'http://ipinfo.io/ip', 'http://www.trackip.net/ip']
     for address in addresses:
         try:
-            f = urllib.request.urlopen(address)
+            f = urllib.request.urlopen(address, timeout=IP_REQUEST_TIMEOUT)
             return f.read().decode().strip()
         except:
             pass
